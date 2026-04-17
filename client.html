@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>WebSocket Client</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: "Inter", "Segoe UI", system-ui, -apple-system,
+                    sans-serif;
+                background: linear-gradient(
+                    135deg,
+                    #0f0c29 0%,
+                    #302b63 50%,
+                    #24243e 100%
+                );
+                min-height: 100vh;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: 20px;
+                position: relative;
+                overflow: hidden;
+            }
+
+            body::before {
+                content: "";
+                position: absolute;
+                width: 200%;
+                height: 200%;
+                background: radial-gradient(
+                    circle,
+                    rgba(255, 255, 255, 0.1) 1px,
+                    transparent 1px
+                );
+                background-size: 50px 50px;
+                animation: moveGrid 20s linear infinite;
+                opacity: 0.3;
+            }
+
+            @keyframes moveGrid {
+                0% {
+                    transform: translate(0, 0);
+                }
+                100% {
+                    transform: translate(50px, 50px);
+                }
+            }
+
+            @keyframes pulse {
+                0%,
+                100% {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+                50% {
+                    transform: scale(1.05);
+                    opacity: 0.8;
+                }
+            }
+
+            @keyframes slideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            @keyframes glow {
+                0%,
+                100% {
+                    box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+                }
+                50% {
+                    box-shadow: 0 0 40px rgba(99, 102, 241, 0.6);
+                }
+            }
+
+            .container {
+                background: rgba(255, 255, 255, 0.05);
+                backdrop-filter: blur(20px);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 20px;
+                box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+                padding: 40px;
+                max-width: 900px;
+                width: 100%;
+                position: relative;
+                z-index: 1;
+                animation: slideIn 0.5s ease-out;
+            }
+
+            h1 {
+                color: #fff;
+                margin-bottom: 30px;
+                text-align: center;
+                font-size: 2.5em;
+                font-weight: 700;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+                text-shadow: 0 0 30px rgba(102, 126, 234, 0.3);
+                letter-spacing: -1px;
+            }
+
+            .status {
+                padding: 15px 20px;
+                border-radius: 12px;
+                margin-bottom: 25px;
+                text-align: center;
+                font-weight: 600;
+                font-size: 14px;
+                letter-spacing: 0.5px;
+                transition: all 0.3s ease;
+                border: 2px solid transparent;
+            }
+
+            .status.connected {
+                background: linear-gradient(
+                    135deg,
+                    rgba(16, 185, 129, 0.2),
+                    rgba(5, 150, 105, 0.1)
+                );
+                color: #10b981;
+                border-color: rgba(16, 185, 129, 0.3);
+                animation: pulse 2s ease-in-out infinite;
+            }
+
+            .status.disconnected {
+                background: linear-gradient(
+                    135deg,
+                    rgba(239, 68, 68, 0.2),
+                    rgba(220, 38, 38, 0.1)
+                );
+                color: #ef4444;
+                border-color: rgba(239, 68, 68, 0.3);
+            }
+
+            .controls {
+                display: flex;
+                gap: 12px;
+                margin-bottom: 20px;
+            }
+
+            button {
+                padding: 12px 24px;
+                border: none;
+                border-radius: 10px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 600;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                position: relative;
+                overflow: hidden;
+                letter-spacing: 0.5px;
+            }
+
+            button::before {
+                content: "";
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 0;
+                height: 0;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.3);
+                transform: translate(-50%, -50%);
+                transition: width 0.6s, height 0.6s;
+            }
+
+            button:hover::before {
+                width: 300px;
+                height: 300px;
+            }
+
+            button:active {
+                transform: scale(0.95);
+            }
+
+            .btn-connect {
+                background: linear-gradient(135deg, #10b981, #059669);
+                color: white;
+                box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+            }
+
+            .btn-connect:hover {
+                box-shadow: 0 6px 20px rgba(16, 185, 129, 0.6);
+                transform: translateY(-2px);
+            }
+
+            .btn-disconnect {
+                background: linear-gradient(135deg, #ef4444, #dc2626);
+                color: white;
+                box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+            }
+
+            .btn-disconnect:hover {
+                box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
+                transform: translateY(-2px);
+            }
+
+            .btn-send {
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: white;
+                flex: 1;
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            }
+
+            .btn-send:hover {
+                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+                transform: translateY(-2px);
+            }
+
+            button:disabled {
+                opacity: 0.4;
+                cursor: not-allowed;
+                transform: none !important;
+            }
+
+            input[type="text"] {
+                flex: 2;
+                padding: 12px 16px;
+                background: rgba(255, 255, 255, 0.05);
+                border: 2px solid rgba(255, 255, 255, 0.1);
+                border-radius: 10px;
+                font-size: 14px;
+                color: #fff;
+                transition: all 0.3s ease;
+            }
+
+            input[type="text"]::placeholder {
+                color: rgba(255, 255, 255, 0.4);
+            }
+
+            input[type="text"]:focus {
+                outline: none;
+                border-color: #667eea;
+                background: rgba(255, 255, 255, 0.08);
+                box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+            }
+
+            .messages {
+                background: rgba(0, 0, 0, 0.3);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 12px;
+                padding: 20px;
+                height: 450px;
+                overflow-y: auto;
+                scrollbar-width: thin;
+                scrollbar-color: rgba(102, 126, 234, 0.5) transparent;
+            }
+
+            .messages::-webkit-scrollbar {
+                width: 8px;
+            }
+
+            .messages::-webkit-scrollbar-track {
+                background: transparent;
+            }
+
+            .messages::-webkit-scrollbar-thumb {
+                background: rgba(102, 126, 234, 0.5);
+                border-radius: 4px;
+            }
+
+            .messages::-webkit-scrollbar-thumb:hover {
+                background: rgba(102, 126, 234, 0.7);
+            }
+
+            .message {
+                padding: 12px 16px;
+                margin-bottom: 12px;
+                border-radius: 10px;
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                animation: slideIn 0.3s ease-out;
+                transition: all 0.3s ease;
+            }
+
+            .message:hover {
+                background: rgba(255, 255, 255, 0.08);
+                transform: translateX(5px);
+            }
+
+            .message.sent {
+                border-left: 4px solid #3b82f6;
+                background: linear-gradient(
+                    135deg,
+                    rgba(59, 130, 246, 0.1),
+                    rgba(37, 99, 235, 0.05)
+                );
+            }
+
+            .message.received {
+                border-left: 4px solid #10b981;
+                background: linear-gradient(
+                    135deg,
+                    rgba(16, 185, 129, 0.1),
+                    rgba(5, 150, 105, 0.05)
+                );
+            }
+
+            .message.system {
+                border-left: 4px solid #f59e0b;
+                background: linear-gradient(
+                    135deg,
+                    rgba(245, 158, 11, 0.15),
+                    rgba(217, 119, 6, 0.05)
+                );
+                border: 1px solid rgba(245, 158, 11, 0.3);
+            }
+
+            .message.notification {
+                border-left: 4px solid #ec4899;
+                background: linear-gradient(
+                    135deg,
+                    rgba(236, 72, 153, 0.1),
+                    rgba(219, 39, 119, 0.05)
+                );
+            }
+
+            .message.broadcast {
+                border-left: 4px solid #f97316;
+                background: linear-gradient(
+                    135deg,
+                    rgba(249, 115, 22, 0.1),
+                    rgba(234, 88, 12, 0.05)
+                );
+            }
+
+            .message-time {
+                font-size: 11px;
+                color: rgba(255, 255, 255, 0.5);
+                margin-bottom: 6px;
+                font-family: "Courier New", monospace;
+            }
+
+            .message-content {
+                color: #fff;
+                font-size: 14px;
+                line-height: 1.5;
+            }
+
+            /* Tabs Styling */
+            .tabs-container {
+                margin-bottom: 20px;
+            }
+
+            .tabs {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 20px;
+                background: rgba(0, 0, 0, 0.2);
+                padding: 8px;
+                border-radius: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            .tab {
+                flex: 1;
+                padding: 12px 20px;
+                background: transparent;
+                border: none;
+                border-radius: 8px;
+                color: rgba(255, 255, 255, 0.6);
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .tab::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                opacity: 0;
+                transition: opacity 0.3s ease;
+            }
+
+            .tab:hover {
+                color: #fff;
+            }
+
+            .tab:hover::before {
+                opacity: 0.2;
+            }
+
+            .tab.active {
+                color: #fff;
+                background: linear-gradient(
+                    135deg,
+                    rgba(102, 126, 234, 0.3),
+                    rgba(118, 75, 162, 0.3)
+                );
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            }
+
+            .tab.active::before {
+                opacity: 0.4;
+            }
+
+            .tab span {
+                position: relative;
+                z-index: 1;
+            }
+
+            .tab-content {
+                display: none;
+            }
+
+            .tab-content.active {
+                display: block;
+                animation: slideIn 0.3s ease-out;
+            }
+
+            .clear-history-btn {
+                background: linear-gradient(135deg, #f59e0b, #d97706);
+                color: white;
+                padding: 8px 16px;
+                border-radius: 8px;
+                margin-bottom: 15px;
+                box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+            }
+
+            .clear-history-btn:hover {
+                box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5);
+                transform: translateY(-2px);
+            }
+
+            .history-count {
+                background: rgba(102, 126, 234, 0.3);
+                color: #fff;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 12px;
+                margin-left: 8px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>WebSocket Client - Targeted Notification System</h1>
+
+            <div id="status" class="status disconnected">Disconnected</div>
+
+            <div class="controls">
+                <input
+                    type="text"
+                    id="deviceIdInput"
+                    placeholder="Enter Device ID (e.g., device_123)"
+                    style="flex: 2"
+                />
+                <button id="connectBtn" class="btn-connect" onclick="connect()">
+                    Connect
+                </button>
+                <button
+                    id="disconnectBtn"
+                    class="btn-disconnect"
+                    onclick="disconnect()"
+                    disabled
+                >
+                    Disconnect
+                </button>
+            </div>
+
+            <div class="controls">
+                <input
+                    type="text"
+                    id="messageInput"
+                    placeholder="Type your message..."
+                    disabled
+                />
+                <button
+                    id="sendBtn"
+                    class="btn-send"
+                    onclick="sendMessage()"
+                    disabled
+                >
+                    Send
+                </button>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs-container">
+                <div class="tabs">
+                    <button
+                        class="tab active"
+                        onclick="switchTab('live')"
+                        id="liveTab"
+                    >
+                        <span>💬 Live Chat</span>
+                    </button>
+                    <button
+                        class="tab"
+                        onclick="switchTab('history')"
+                        id="historyTab"
+                    >
+                        <span
+                            >📜 History
+                            <span class="history-count" id="historyCount"
+                                >0</span
+                            ></span
+                        >
+                    </button>
+                </div>
+
+                <div id="liveContent" class="tab-content active">
+                    <div id="messages" class="messages"></div>
+                </div>
+
+                <div id="historyContent" class="tab-content">
+                    <button class="clear-history-btn" onclick="clearHistory()">
+                        🗑️ Clear History
+                    </button>
+                    <div id="historyMessages" class="messages"></div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            let ws = null;
+            let messageHistory = [];
+
+            function connect() {
+                const statusEl = document.getElementById("status");
+                const connectBtn = document.getElementById("connectBtn");
+                const disconnectBtn = document.getElementById("disconnectBtn");
+                const messageInput = document.getElementById("messageInput");
+                const sendBtn = document.getElementById("sendBtn");
+                const deviceIdInput = document.getElementById("deviceIdInput");
+                const messagesEl = document.getElementById("messages");
+
+                const device_id =
+                    deviceIdInput.value.trim() || `device_${Date.now()}`;
+                deviceIdInput.value = device_id;
+
+                // Clear live messages on new connection
+                messagesEl.innerHTML = "";
+
+                try {
+                    const wsUrl = `ws://${window.location.host}?device_id=${device_id}`;
+                    ws = new WebSocket(wsUrl);
+
+                    console.log(`Connecting with device_id: ${device_id}`);
+
+                    ws.onopen = function () {
+                        statusEl.textContent = `Connected (Device: ${device_id})`;
+                        statusEl.className = "status connected";
+                        connectBtn.disabled = true;
+                        disconnectBtn.disabled = false;
+                        messageInput.disabled = false;
+                        sendBtn.disabled = false;
+                        deviceIdInput.disabled = true;
+                        addMessage(
+                            "system",
+                            `Connected with device_id: ${device_id}`
+                        );
+                    };
+
+                    ws.onmessage = function (event) {
+                        try {
+                            const data = JSON.parse(event.data);
+
+                            // Different message types for better UX
+                            if (data.type === "notification") {
+                                addMessage(
+                                    "notification",
+                                    `[${data.device_id}] ${data.message}`,
+                                    data.timestamp
+                                );
+                            } else if (data.type === "broadcast") {
+                                addMessage(
+                                    "broadcast",
+                                    data.message,
+                                    data.timestamp
+                                );
+                            } else if (data.type === "welcome") {
+                                addMessage(
+                                    "system",
+                                    `${data.message} (Device: ${data.device_id}, Server: ${data.server_id})`,
+                                    data.timestamp
+                                );
+                            } else if (data.type === "echo") {
+                                addMessage(
+                                    "received",
+                                    `${data.message}`,
+                                    data.timestamp
+                                );
+                            } else if (data.type === "response") {
+                                addMessage(
+                                    "received",
+                                    `${data.message}`,
+                                    data.timestamp
+                                );
+                            } else if (data.verification !== undefined) {
+                                // Handle verification messages
+                                addMessage(
+                                    "system",
+                                    `Verification: ${data.verification}`,
+                                    data.timestamp
+                                );
+                            } else {
+                                addMessage(
+                                    "received",
+                                    JSON.stringify(data),
+                                    data.timestamp || new Date().toISOString()
+                                );
+                            }
+                        } catch (e) {
+                            addMessage("received", event.data);
+                        }
+                    };
+
+                    ws.onclose = function () {
+                        statusEl.textContent = "Disconnected";
+                        statusEl.className = "status disconnected";
+                        connectBtn.disabled = false;
+                        disconnectBtn.disabled = true;
+                        messageInput.disabled = true;
+                        sendBtn.disabled = true;
+                        deviceIdInput.disabled = false;
+
+                        // Clear live messages but save to history
+                        const messagesEl = document.getElementById("messages");
+                        messagesEl.innerHTML = "";
+
+                        addMessage("system", "Disconnected from server");
+                    };
+
+                    ws.onerror = function (error) {
+                        addMessage("system", "Error occurred");
+                        console.error("WebSocket error:", error);
+                    };
+                } catch (error) {
+                    addMessage("system", "Failed to connect: " + error.message);
+                }
+            }
+
+            function disconnect() {
+                if (ws) {
+                    ws.close();
+                    ws = null;
+
+                    // Clear live messages on disconnect
+                    const messagesEl = document.getElementById("messages");
+                    messagesEl.innerHTML = "";
+                }
+            }
+
+            function sendMessage() {
+                const messageInput = document.getElementById("messageInput");
+                const message = messageInput.value.trim();
+
+                if (message && ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ message: message }));
+                    addMessage("sent", message);
+                    messageInput.value = "";
+                }
+            }
+
+            function addMessage(type, content, timestamp = null) {
+                const messagesEl = document.getElementById("messages");
+                const messageEl = document.createElement("div");
+                messageEl.className = `message ${type}`;
+
+                const time = timestamp || new Date().toLocaleTimeString();
+
+                messageEl.innerHTML = `
+                <div class="message-time">${time}</div>
+                <div class="message-content">${content}</div>
+            `;
+
+                messagesEl.appendChild(messageEl);
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+
+                // Save to history
+                const historyItem = {
+                    type,
+                    content,
+                    timestamp: time,
+                    date: new Date().toISOString(),
+                };
+                messageHistory.push(historyItem);
+                updateHistoryDisplay();
+            }
+
+            function switchTab(tab) {
+                const liveTab = document.getElementById("liveTab");
+                const historyTab = document.getElementById("historyTab");
+                const liveContent = document.getElementById("liveContent");
+                const historyContent =
+                    document.getElementById("historyContent");
+
+                if (tab === "live") {
+                    liveTab.classList.add("active");
+                    historyTab.classList.remove("active");
+                    liveContent.classList.add("active");
+                    historyContent.classList.remove("active");
+                } else {
+                    historyTab.classList.add("active");
+                    liveTab.classList.remove("active");
+                    historyContent.classList.add("active");
+                    liveContent.classList.remove("active");
+                    updateHistoryDisplay();
+                }
+            }
+
+            function updateHistoryDisplay() {
+                const historyEl = document.getElementById("historyMessages");
+                const historyCount = document.getElementById("historyCount");
+
+                historyCount.textContent = messageHistory.length;
+                historyEl.innerHTML = "";
+
+                messageHistory.forEach((item) => {
+                    const messageEl = document.createElement("div");
+                    messageEl.className = `message ${item.type}`;
+
+                    messageEl.innerHTML = `
+                        <div class="message-time">${item.timestamp}</div>
+                        <div class="message-content">${item.content}</div>
+                    `;
+
+                    historyEl.appendChild(messageEl);
+                });
+
+                historyEl.scrollTop = historyEl.scrollHeight;
+            }
+
+            function clearHistory() {
+                messageHistory = [];
+                updateHistoryDisplay();
+            }
+
+            // Allow sending message with Enter key
+            document
+                .getElementById("messageInput")
+                .addEventListener("keypress", function (e) {
+                    if (e.key === "Enter") {
+                        sendMessage();
+                    }
+                });
+        </script>
+    </body>
+</html>
