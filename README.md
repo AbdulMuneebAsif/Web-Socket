@@ -24,7 +24,7 @@ A production-ready WebSocket notification system with Redis-backed message broke
 1. **Clone the repository:**
 
 ```bash
-git clone <repository-url>
+git clone [<repository-url>](https://github.com/AbdulMuneebAsif/Web-Socket.git)
 cd Web-Socket
 ```
 
